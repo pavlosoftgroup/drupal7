@@ -1,0 +1,10 @@
+name = Simple Users Messenger
+description = Realisation Users Messenger
+core = 7.x
+files[] = simple_messenger.module
+files[] = simple_messenger.install
+files[] = includes/simple-messenger.block.inc
+files[] = css/simple-messenger.css
+files[] = js/simple-messenger.js
+
+dependencies[] = entity
