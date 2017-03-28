@@ -2,17 +2,19 @@
 module_load_include('inc', 'simple_messenger', 'includes/simple-messenger.block');
 
 
-
+/**
+ * Implement hook_init()
+ */
 function simple_messenger_init() {
 
   drupal_add_css(drupal_get_path('module', 'simple_messenger') . '/css/simple-messenger.css');
 
   // drupal_add_js(drupal_get_path('module', 'simple_user') . '/js/libked-in.j)');
 }
+
 /**
  * Implement hook_menu()
  */
-
 function simple_messenger_menu() {
 
   $items['user/%user/messages'] = array(
@@ -66,8 +68,9 @@ function simple_messenger_menu() {
   return $items;
 }
 
-
-//register
+/**
+ * Implement hook_entity_info()
+ */
 function simple_messenger_entity_info() {
   return array(
     'simple_messenger' => array(
@@ -89,24 +92,31 @@ function simple_messenger_entity_info() {
   );
 }
 
-
+/**
+ * Implement hook_access()
+ */
 function simple_messenger_access($op, $entity, $account = NULL, $entity_type = 'simple_messenger') {
   return user_access('access content');
 }
 
+/**
+ * Implement hook_load()
+ */
 function simple_messenger_load($id) {
   $result = entity_load('simple_messenger', array($id));
   return $result ? reset($result) : FALSE;
 }
 
-function simple_messenger_inactive_callback($sendler_id) {
+/**
+ * @param $sender_id - sender user uid
+ * @return array ajax commands[]
+ */
+function simple_messenger_inactive_callback($sender_id) {
   global $user;
-  if ($sendler_id == 'all') {
+  if ($sender_id == 'all') {
     $entities = db_select('simple_messenger', 'hm')
       ->fields('hm', array('id'))
-      ->condition(db_or()//        ->condition('uid', $sendler_id)
-      ->condition('sid', $user->uid)
-        ->condition('status', 1))//      ->orderBy('hm.date ', 'DESC')
+      ->condition(db_or()->condition('sid', $user->uid)->condition('status', 1))
       ->execute()
       ->fetchCol();
     if ($entities[0]) {
@@ -117,19 +127,14 @@ function simple_messenger_inactive_callback($sendler_id) {
       }
       ctools_include('ajax');
       $commands[] = ajax_command_invoke('tr.red-background', 'removeClass', array('red-background'));
-
-      //      $commands[] = ctools_ajax_command_attr('tr.red-background', 'addClass', 'odd');
       return array('#type' => 'ajax', '#commands' => $commands);
-
     }
-
-
   }
   else {
     $entities = db_select('simple_messenger', 'hm')
       ->fields('hm', array('id'))
       ->condition(db_or()
-        ->condition('uid', $sendler_id)
+        ->condition('uid', $sender_id)
         ->condition('sid', $user->uid)
         ->condition('status', 1))//      ->orderBy('hm.date ', 'DESC')
       ->execute()
@@ -142,9 +147,9 @@ function simple_messenger_inactive_callback($sendler_id) {
         $entity = entity_save('simple_messenger', $entity);
       }
       ctools_include('ajax');
-      $commands[] = ajax_command_invoke('.row-' . $sendler_id, 'removeClass', array('red-background'));
+      $commands[] = ajax_command_invoke('.row-' . $sender_id, 'removeClass', array('red-background'));
 
-      //      $commands[] = ctools_ajax_command_attr('.row-' . $sendler_id, 'class', 'odd');
+      //      $commands[] = ctools_ajax_command_attr('.row-' . $sender_id, 'class', 'odd');
       return array('#type' => 'ajax', '#commands' => $commands);
 
     }
@@ -175,8 +180,8 @@ function _message_user_view($people, $date = NULL, $type = 'small') {
   $time = $type == 'big' ? '' : date('H:i', $date);
   $photo = field_view_field('user', $people, 'field_user_avatar', $options_img);
   //  $photo = field_view_value('user', $user, 'field_user_avatar', $photo[0]);
-  // $fname_field = field_view_field('user', $sendler, 'field_first_name');
-  //  $name_field = field_view_field('user', $sendler, 'field_surname');
+  // $fname_field = field_view_field('user', $sender, 'field_first_name');
+  //  $name_field = field_view_field('user', $sender, 'field_surname');
   $name = field_get_items('user', $people, 'field_surname');
   $name = field_view_value('user', $people, 'field_surname', $name[0], array(
     'label' => 'hidden',
@@ -186,38 +191,30 @@ function _message_user_view($people, $date = NULL, $type = 'small') {
     'label' => 'hidden',
   ));
 
-  $sendler_data = '<div class="' . $class_my . '">';
-  $sendler_data .= '<div class="avatar">';
-  $sendler_data .= drupal_render($photo);
-  $sendler_data .= '</div>';
-  $sendler_data .= $type == 'big' ? '<h3 class="messages-user-name">' : '<b class="messages-user-name">';
-  $sendler_data .= '';
-  $sendler_data .= drupal_render($name);
-  $sendler_data .= '  ';
+  $sender_data = '<div class="' . $class_my . '">';
+  $sender_data .= '<div class="avatar">';
+  $sender_data .= drupal_render($photo);
+  $sender_data .= '</div>';
+  $sender_data .= $type == 'big' ? '<h3 class="messages-user-name">' : '<b class="messages-user-name">';
+  $sender_data .= '';
+  $sender_data .= drupal_render($name);
+  $sender_data .= '  ';
 
-  $sendler_data .= drupal_render($fname);
-  $sendler_data .= $type == 'big' ? '</h3>' : '</b>';
-  $sendler_data .= '<p>';
-  $sendler_data .= $time;
-  $sendler_data .= '</p>';
-  $sendler_data .= '</div>';
+  $sender_data .= drupal_render($fname);
+  $sender_data .= $type == 'big' ? '</h3>' : '</b>';
+  $sender_data .= '<p>';
+  $sender_data .= $time;
+  $sender_data .= '</p>';
+  $sender_data .= '</div>';
 
-  return $sendler_data;
+  return $sender_data;
 }
 
-function simple_messenger_user_list($user_to, $sendler) {
+function simple_messenger_user_list($user_to, $sender) {
   global $user;
-
-
-  //    dpm($user_to);
   $uid = $user_to->uid;
-  $sendler = user_load($sendler);
+  $sender = user_load($sender);
   $user = user_load($uid);
-  //    dpm($sendler);
-
-  //   drupal_goto('user/'.$user.'/messages-send/'.$sendler.'/nojs');
-
-
   $massages_for = db_select('simple_messenger', 'hm')
     ->fields('hm', array(
       'id',
@@ -227,13 +224,9 @@ function simple_messenger_user_list($user_to, $sendler) {
       'title',
       'status',
       'sid'
-    ))//    ->condition(
-    //      db_or()
-    //        ->condition('uid', $uid)
-    //        ->condition('uid', $sendler->uid)
-    //    )
+    ))
     ->condition('hm.uid', $uid)
-    ->condition('hm.sid', $sendler->uid)
+    ->condition('hm.sid', $sender->uid)
     ->orderBy('hm.date ', 'DESC')
     ->execute()
     ->fetchAllAssoc('id');
@@ -250,9 +243,9 @@ function simple_messenger_user_list($user_to, $sendler) {
     ))//    ->condition(
     //      db_or()
     //        ->condition('uid', $uid)
-    //        ->condition('uid', $sendler->uid)
+    //        ->condition('uid', $sender->uid)
     //    )
-    ->condition('hs.uid', $sendler->uid)
+    ->condition('hs.uid', $sender->uid)
     ->condition('hs.sid', $uid)
     ->orderBy('hs.date ', 'DESC')
     ->execute()
@@ -275,13 +268,15 @@ function simple_messenger_user_list($user_to, $sendler) {
     ),
     'html' => TRUE,
   ));
-  $sandler_name = $sendler->name;
-  $output .= '<h3>' . t('Conversation with ') . $sandler_name . '</h3>';
+  $sander_name = $sender->name;
+  $output .=  t('Conversation with ') .'<h3>' . $sander_name . '</h3>';
   $output .= '</div>';
   $output .= '<div id="center_message">';
   $output .= '<div id="left_message">';
   $form = drupal_get_form('simple_messenger_send_message_form');
   $output .= '<div id="message_form">';
+  $output .= _user_picture($user->uid);
+  dpm(_user_picture($user->uid));
   $output .= theme('image_style', array(
     'path' => $user->picture->uri,
     'style_name' => 'thumbnail',
@@ -294,13 +289,15 @@ function simple_messenger_user_list($user_to, $sendler) {
   $output .= '<div class="clearfix"></div>';
   $output .= '<div class="mesenger_block">';
   $rows = array();
-  $header = array('', '', '');
+  $header = array(t('User'), t('Message'), t('Date'));
 
   //  $output .=
   foreach ($massages as $messed) {
+//    dpm( $messed->uid);
+    $subName = $user->uid == $messed->uid ? ' ('.t('you').')' : '';
 
     $rows[] = array(
-      _message_image($messed),
+      _user_name($messed->uid).$subName,
       $messed->message,
       date('d M', $messed->date) . '<br />' . date('H:i', $messed->date)
 
@@ -309,8 +306,6 @@ function simple_messenger_user_list($user_to, $sendler) {
     if (($messed->status == 1) && ($messed->sid == $user->uid)) {
       _disable_new_status($messed->id);
     }
-
-
   }
 
   //  $output ,=
@@ -322,42 +317,50 @@ function simple_messenger_user_list($user_to, $sendler) {
   $output .= '</div>';
   $output .= '</div>';
   $output .= '<div id="right_message">';
-  $output .= _message_user_view($sendler, NULL, 'big');
+  $output .= _message_user_view($sender, NULL, 'big');
   $output .= '</div>';
   $output .= '</div>';
 
 
   //  $form = drupal_get_form('hyedesk_messenger_send_form');
-  //			$output .= ctools_modal_text_button(t('Send Message'), 'user/' . $user->uid . '/messages-send/' . $sendler->uid . '/nojs/0', t('test popup'), 'ctools-modal-first-popup-style button_link');;
+  //			$output .= ctools_modal_text_button(t('Send Message'), 'user/' . $user->uid . '/messages-send/' . $sender->uid . '/nojs/0', t('test popup'), 'ctools-modal-first-popup-style button_link');;
 
   return $output;
 }
+function _user_name($uid) {
+  $user = user_load($uid);
+  return $user->name;
+}
 
-function _message_image($message) {
-  $user = user_load($message->uid);
-  dpm($user);
-  $options_img =  array(
+function _user_picture($uid){
+  $user = user_load($uid);
+  $options_img = array(
     'type' => 'image',
     'label' => 'hidden',
     'settings' => array(
-      'image_style' => 'thumbnail', //place your image style here
-       'image_link' => 'content',
+      'image_style' => 'thumbnail',
     ),
   );
-//  $ima = field_get_items('user', $user, 'picture');
-
-
-  //  $image = isset($img[1]) ? field_view_value('user', $user, 'pictures', $ima[0],$options_img): field_view_field('user', $user, 'picture', $options_img);
-  $image =  field_view_field('user', $user, 'picture', $options_img);
-  dpm($image);
+  $image = field_view_field('user', $user, 'picture', $options_img);
 
 
   return render($image);
-  //    theme('image_style', array(
-  //    'path' => $user->picture->uri,
-  //    'style_name' => 'user_40x40',
-  //    'attributes' => array('class' => array('circle_photo')),
-  //  ));
+
+}
+function _message_image($message) {
+  $user = user_load($message->uid);
+  $options_img = array(
+    'type' => 'image',
+    'label' => 'hidden',
+    'settings' => array(
+      'image_style' => 'thumbnail',
+    ),
+  );
+  $image = field_view_field('user', $user, 'picture', $options_img);
+
+
+  return render($image);
+
 
 
 }
@@ -494,7 +497,7 @@ function simple_messenger_send_form($form, $form_state) {
   );
   $form['send']['avatar'] = array(
     '#type' => 'markup',
-    '#markup' => '<div style="display:inline-block; width: 40px;" class="img circle_photo">' . render($send_avatar).'</div>',
+    '#markup' => '<div style="display:inline-block; width: 40px;" class="img circle_photo">' . render($send_avatar) . '</div>',
   );
 
 
@@ -558,7 +561,6 @@ function simple_messenger_send_form($form, $form_state) {
 function simple_messenger_send_form_submit($form, &$form_state) {
   simple_ctools_popup_style();
   $send_user = user_load($form_state['sid']);
-  $send_mail = isset($send_user->field_receive_e_mail_messages[LANGUAGE_NONE][0]) ? $send_user->field_receive_e_mail_messages[LANGUAGE_NONE][0]['value'] : 0;
 
   $values = array(
     'title' => $form_state['values']['title'],
@@ -568,33 +570,9 @@ function simple_messenger_send_form_submit($form, &$form_state) {
     'status' => 1,
     'date' => time(),
   );
-  if ($send_mail == 1) {
-    $mail_options = array();
-    $mail_options['message'] = $values['message'];
-
-    $mail = simple_mail_receive_mail_message($send_user, $mail_options);
-    if ($mail) {
-      $replacements = array(
-        '!user' => $send_user->name,
-        '!mail' => $send_user->mail
-      );
-      $message = 'Mail to "!user" email: "!mail" send!';
-      watchdog('instagram_pane', $message, $replacements, WATCHDOG_INFO);
-
-    }
-    else {
-      $replacements = array(
-        '!user' => $send_user->name,
-        '!mail' => $send_user->mail
-      );
-      $message = 'Mail to "!user" email: "!mail" error!';
-      watchdog('instagram_pane', $message, $replacements, WATCHDOG_ERROR);
-    }
-  }
-
-  $hyedesk_messenger = entity_create('simple_messenger', $values);
-  $hyedesk_messenger = entity_save('simple_messenger', $hyedesk_messenger);
-  if ($hyedesk_messenger) {
+  $simple_messenger = entity_create('simple_messenger', $values);
+  $simple_messenger = entity_save('simple_messenger', $simple_messenger);
+  if ($simple_messenger) {
     $commands[] = ctools_ajax_command_redirect('user/' . $values['uid'] . '/messages/' . $values['sid'] . '/message-list');
     $commands[] = ctools_modal_command_dismiss();
     print ajax_render($commands);
@@ -643,9 +621,9 @@ function simple_messenger_send_message_form_submit($form, &$form_state) {
     }
   }
 
-  $hyedesk_messenger = entity_create('simple_messenger', $values);
-  $hyedesk_messenger = entity_save('simple_messenger', $hyedesk_messenger);
-  if ($hyedesk_messenger) {
+  $simple_messenger = entity_create('simple_messenger', $values);
+  $simple_messenger = entity_save('simple_messenger', $simple_messenger);
+  if ($simple_messenger) {
 
     drupal_set_message(t('Message Send'));
     //    simple_system_massage_callback(t('Message Send'), 'ajax');
@@ -656,6 +634,7 @@ function simple_messenger_send_message_form_submit($form, &$form_state) {
   }
 
 }
+
 function simple_messenger_user_view($account) {
   global $user;
   dpm($account);
@@ -676,193 +655,193 @@ function simple_messenger_user_view($account) {
 
 function simple_messenger_list() {
   global $user;
-//  if (arg(1) == $user->uid) {
+  //  if (arg(1) == $user->uid) {
 
-    //    $entitys = db_select('hyedesk_messenger', 'hm')
-    //      ->fields('hm')
-    //      ->condition(db_or()
-    //        ->condition('uid', $user->uid)
-    //        ->condition('sid', $user->uid))//      ->orderBy('hm.date ', 'DESC')
-    //      ->execute()
-    //      ->fetchAllAssoc('id');
+  //    $entitys = db_select('hyedesk_messenger', 'hm')
+  //      ->fields('hm')
+  //      ->condition(db_or()
+  //        ->condition('uid', $user->uid)
+  //        ->condition('sid', $user->uid))//      ->orderBy('hm.date ', 'DESC')
+  //      ->execute()
+  //      ->fetchAllAssoc('id');
 
-    $entitys = entity_load('simple_messenger');
-    $my_messages = array();
-    $array_sendler = array();
-    foreach ($entitys as $my_message) {
-      if //          (($my_message->uid == $user->uid) ||
-      ($my_message->sid == $user->uid
-      ) //          )
-      {
-        $my_messages[$my_message->id] = $my_message;
-      }
+  $entitys = entity_load('simple_messenger');
+  $my_messages = array();
+  $array_sendler = array();
+  foreach ($entitys as $my_message) {
+    if //          (($my_message->uid == $user->uid) ||
+    ($my_message->sid == $user->uid
+    ) //          )
+    {
+      $my_messages[$my_message->id] = $my_message;
     }
+  }
 
 
-    //            dpm($entitys);
+  //            dpm($entitys);
 
 
-    $link_inactive_all = l('<div class="dots"></div>', 'message/inactive/all', array(
-      'html' => TRUE,
-      'attributes' => array(
-        'class' => array(
-          'dot',
-          'use-ajax'
-        )
+  $link_inactive_all = l('<div class="dots"></div>', 'message/inactive/all', array(
+    'html' => TRUE,
+    'attributes' => array(
+      'class' => array(
+        'dot',
+        'use-ajax'
       )
-    ));
-    $output = '<h1>' . t('Messages') . '</h1>';
-    $output .= l(t('Select User'), '');
-    $header = array(
-      '',
-      '',
-      '',
-      '',
-      '<div class="mark_all_read">' . ('Mark All Read') . $link_inactive_all . '</div>',
-    );
-    $entity = array();
-    $count_mess = array();
-    foreach ($my_messages as $message) {
-      //      dpm($message);
-      $count_mess[$message->uid] = isset($count_mess[$message->uid]) ? $count_mess[$message->uid] : 0;
+    )
+  ));
+  $output = '<h1>' . t('Messages') . '</h1>';
+  $output .= l(t('Select User'), '');
+  $header = array(
+    '',
+    '',
+    '',
+    '',
+    '<div class="mark_all_read">' . ('Mark All Read') . $link_inactive_all . '</div>',
+  );
+  $entity = array();
+  $count_mess = array();
+  foreach ($my_messages as $message) {
+    //      dpm($message);
+    $count_mess[$message->uid] = isset($count_mess[$message->uid]) ? $count_mess[$message->uid] : 0;
 
-      if (!isset($entity[$message->uid])) {
-        $array_sendler[$message->uid] = $message->uid;
-        $entity[$message->uid] = $message;
+    if (!isset($entity[$message->uid])) {
+      $array_sendler[$message->uid] = $message->uid;
+      $entity[$message->uid] = $message;
+      //        $count_mess[$message->sid] = $message->status == 1 ? 1 : 0;
+      $count_mess[$message->uid]++;
+    }
+    elseif ($entity[$message->uid]->date < $message->date) {
+      $entity[$message->uid] = $message;
+      //        $count_mess[$message->sid] = $message->status == 1 ? $count_mess[$message->sid] + 1 : $count_mess[$message->sid];
+      $count_mess[$message->uid]++;
+    }
+    $_SESSION['message'][$message->uid] = $count_mess[$message->uid];
+  }
+
+
+  $count_mess = array();
+  foreach ($entitys as $value) {
+    if (($value->uid == $user->uid) && (!array_key_exists($value->sid, $array_sendler))) {
+      $count_mess[$value->sid] = isset($count_mess[$value->sid]) ? $count_mess[$value->sid] : 0;
+
+      if (!isset($entity[$value->sid])) {
+        $entity[$value->sid] = $value;
         //        $count_mess[$message->sid] = $message->status == 1 ? 1 : 0;
-        $count_mess[$message->uid]++;
+        $count_mess[$value->sid]++;
       }
-      elseif ($entity[$message->uid]->date < $message->date) {
-        $entity[$message->uid] = $message;
+      elseif ($entity[$value->sid]->date < $value->date) {
+        $entity[$value->sid] = $value;
         //        $count_mess[$message->sid] = $message->status == 1 ? $count_mess[$message->sid] + 1 : $count_mess[$message->sid];
-        $count_mess[$message->uid]++;
-      }
-      $_SESSION['message'][$message->uid] = $count_mess[$message->uid];
-    }
-
-
-    $count_mess = array();
-    foreach ($entitys as $value) {
-      if (($value->uid == $user->uid) && (!array_key_exists($value->sid, $array_sendler))) {
-        $count_mess[$value->sid] = isset($count_mess[$value->sid]) ? $count_mess[$value->sid] : 0;
-
-        if (!isset($entity[$value->sid])) {
-          $entity[$value->sid] = $value;
-          //        $count_mess[$message->sid] = $message->status == 1 ? 1 : 0;
-          $count_mess[$value->sid]++;
-        }
-        elseif ($entity[$value->sid]->date < $value->date) {
-          $entity[$value->sid] = $value;
-          //        $count_mess[$message->sid] = $message->status == 1 ? $count_mess[$message->sid] + 1 : $count_mess[$message->sid];
-          $count_mess[$value->sid]++;
-        }
-
-
-        $_SESSION['message'][$value->sid] = $count_mess[$value->sid];
+        $count_mess[$value->sid]++;
       }
 
 
+      $_SESSION['message'][$value->sid] = $count_mess[$value->sid];
     }
 
-    foreach ($entity as $key => $value) {
-      foreach ($entitys as $key2 => $value2) {
-        if (($key == $value2->sid) && ($value2->uid == $value->sid)) {
-          $_SESSION['message'][$key]++;
-          if ($value->date < $value2->date) {
-            $entity[$key] = $value2;
-          }
+
+  }
+
+  foreach ($entity as $key => $value) {
+    foreach ($entitys as $key2 => $value2) {
+      if (($key == $value2->sid) && ($value2->uid == $value->sid)) {
+        $_SESSION['message'][$key]++;
+        if ($value->date < $value2->date) {
+          $entity[$key] = $value2;
         }
       }
     }
+  }
 
-    //    dpm($_SESSION['message']);
-    $last_entity = array();
-    //    foreach ($entity as $key => $value) {
-    //      if ($key != $user->uid) {
-    //        $last_entity[$key] = $value;
-    //      }
-    //
-    //    }
+  //    dpm($_SESSION['message']);
+  $last_entity = array();
+  //    foreach ($entity as $key => $value) {
+  //      if ($key != $user->uid) {
+  //        $last_entity[$key] = $value;
+  //      }
+  //
+  //    }
 
-    foreach ($entity as $key => $mess) {
-      //      dpm($mess);
-      $class_new = (($mess->status == 1) && ($mess->uid != $user->uid)) ? 'red-background' : '';
+  foreach ($entity as $key => $mess) {
+    //      dpm($mess);
+    $class_new = (($mess->status == 1) && ($mess->uid != $user->uid)) ? 'red-background' : '';
 
-      $sendler_id = $mess->sid != $user->uid ? $mess->sid : $mess->uid;
-      $sendler = user_load($sendler_id);
-      if ($sendler) {
-        $sity = isset($sendler->field_sities[LANGUAGE_NONE][0]['tid']) ? _term_name($sendler->field_sities[LANGUAGE_NONE][0]['tid']) : '';
-        $countres = isset($sendler->field_country[LANGUAGE_NONE][0]['tid']) ? _term_name($sendler->field_country[LANGUAGE_NONE][0]['tid']) : '';
-        $country = $sity . ' ' . $countres;
-        $path_from = $mess->sid != $user->uid ? $mess->sid : $mess->uid;
-        $path = 'user/' . $user->uid . '/messages/' . $path_from . '/message-list';
-        $link_innew = l('<div class="dot"></div>', 'message/inactive/' . $sendler_id, array(
-          'html' => TRUE,
-          'attributes' => array(
-            'class' => array(
-              'dot',
-              'use-ajax'
-            )
+    $sender_id = $mess->sid != $user->uid ? $mess->sid : $mess->uid;
+    $sender = user_load($sender_id);
+    if ($sender) {
+      $sity = isset($sender->field_sities[LANGUAGE_NONE][0]['tid']) ? _term_name($sender->field_sities[LANGUAGE_NONE][0]['tid']) : '';
+      $countres = isset($sender->field_country[LANGUAGE_NONE][0]['tid']) ? _term_name($sender->field_country[LANGUAGE_NONE][0]['tid']) : '';
+      $country = $sity . ' ' . $countres;
+      $path_from = $mess->sid != $user->uid ? $mess->sid : $mess->uid;
+      $path = 'user/' . $user->uid . '/messages/' . $path_from . '/message-list';
+      $link_innew = l('<div class="dot"></div>', 'message/inactive/' . $sender_id, array(
+        'html' => TRUE,
+        'attributes' => array(
+          'class' => array(
+            'dot',
+            'use-ajax'
           )
-        ));
-        $rows[$key] = array(
-          'data' => array(
-            array(
-              'data' => //        _simple_user_full_name($sendler),
-                $sendler->name ,
-              'class' => 'name'
-            ),
-            array(
-              'data' => theme('image_style', array(
-                'path' => $sendler->picture->uri,
-                'style_name' => 'thumbnail',
-                'attributes' => array('class' => array('circle_photo')),
-              )),
-              'class' => array('photo')
-            ),
-            array(
-              'data' => theme_link(array(
-                'text' => '<div class="messag">' . $mess->message . '</div>',
-                'path' => $path,
-                'options' => array(
-                  'attributes' => array(
-                    'class' => array('message_link', 'black_link'),
-                  ),
-                  'html' => TRUE,
-                ),
-              )),
-              'class' => array('message')
-            ),
-            array(
-              'data' => '<div class="address"><div class="street">' . $sendler->field_address[LANGUAGE_NONE][0]['value'] . '</div><div class="country">' . $country . '</div></div>',
-              'class' => 'address',
-            ),
-            '<div class="loas">' . $_SESSION['message'][$sendler_id] . $link_innew . '</div>',
-
+        )
+      ));
+      $rows[$key] = array(
+        'data' => array(
+          array(
+            'data' => //        _simple_user_full_name($sender),
+              $sender->name,
+            'class' => 'name'
           ),
-          'class' => array('row-' . $sendler_id, $class_new),
-        );
-      }
+          array(
+            'data' => theme('image_style', array(
+              'path' => $sender->picture->uri,
+              'style_name' => 'thumbnail',
+              'attributes' => array('class' => array('circle_photo')),
+            )),
+            'class' => array('photo')
+          ),
+          array(
+            'data' => theme_link(array(
+              'text' => '<div class="messag">' . $mess->message . '</div>',
+              'path' => $path,
+              'options' => array(
+                'attributes' => array(
+                  'class' => array('message_link', 'black_link'),
+                ),
+                'html' => TRUE,
+              ),
+            )),
+            'class' => array('message')
+          ),
+          array(
+            'data' => '<div class="address"><div class="street">' . $sender->field_address[LANGUAGE_NONE][0]['value'] . '</div><div class="country">' . $country . '</div></div>',
+            'class' => 'address',
+          ),
+          '<div class="loas">' . $_SESSION['message'][$sender_id] . $link_innew . '</div>',
+
+        ),
+        'class' => array('row-' . $sender_id, $class_new),
+      );
     }
+  }
 
 
-    $output .= isset($rows) ? theme('table', array(
-      'header' => $header,
-      'rows' => $rows
-    )) : t('Your don\'t have any messages');
+  $output .= isset($rows) ? theme('table', array(
+    'header' => $header,
+    'rows' => $rows
+  )) : t('Your don\'t have any messages');
 
-    return $output;
-//  }
-//  else {
-//    drupal_goto('user/' . $user->uid . '/messages/');
-//  }
+  return $output;
+  //  }
+  //  else {
+  //    drupal_goto('user/' . $user->uid . '/messages/');
+  //  }
 }
 
 //function simple_message_button_form($form, $form_state) {
 //
 //  $form[]
 //}
-function simple_messenger_send_form_callback($user, $sendler, $js = NULL, $options = NULL) {
+function simple_messenger_send_form_callback($user, $sender, $js = NULL, $options = NULL) {
   if (!$js) {
     return drupal_get_form('simple_messenger_send_form');
   }
@@ -872,13 +851,14 @@ function simple_messenger_send_form_callback($user, $sendler, $js = NULL, $optio
     'ajax' => TRUE,
     'title' => t('Form title'),
     'uid' => $user->uid,
-    'sid' => $sendler,
+    'sid' => $sender,
     'options' => $options,
   );
   $output = ctools_modal_form_wrapper('simple_messenger_send_form', $form_state);
   print ajax_render($output);
   drupal_exit();
 }
+
 /**
  * Implements hook_theme().
  */
