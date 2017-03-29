@@ -1,5 +1,5 @@
-# simple_messenger
-Simple messenger implements the exchange of messages between users.
+# Simple Messenger
+Simple messenger implements the exchange of messages between users for Drupal 7.
 To use you need to install the Entity API.
 
 Installation:
